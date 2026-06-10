@@ -22,7 +22,7 @@ public class NatLibController {
 
     @ResponseBody
     @GetMapping(
-            value = "/books",
+            value = "/searchBooks",
             produces = MediaType.TEXT_PLAIN_VALUE + ";charset=UTF-8"
     )
     public String getBooks(@RequestParam String keyword) {
