@@ -1,0 +1,39 @@
+{
+  "books": [
+    {
+      "id": 1,
+      "title": "모던 자바스크립트",
+      "author": "이현우",
+      "price": 28000,
+      "cover": ""
+    },
+    {
+      "id": 2,
+      "title": "리액트 실전 프로젝트",
+      "author": "김서연",
+      "price": 32000,
+      "cover": ""
+    },
+    {
+      "id": 3,
+      "title": "데이터베이스 입문",
+      "author": "박민준",
+      "price": 25000,
+      "cover": ""
+    },
+    {
+      "id": 4,
+      "title": "Spring Boot API 설계",
+      "author": "최지훈",
+      "price": 35000,
+      "cover": ""
+    },
+    {
+      "id": 5,
+      "title": "경제를 읽는 시간",
+      "author": "정유진",
+      "price": 18000,
+      "cover": ""
+    }
+  ]
+}
