@@ -1,34 +1,48 @@
 package com.aivle.bookapp.controller;
 
+import com.aivle.bookapp.dto.LoginRequest;
+import com.aivle.bookapp.dto.SignupRequest;
 import com.aivle.bookapp.entity.User;
-import com.aivle.bookapp.repository.UserRepository;
+import com.aivle.bookapp.service.UserService;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/users")
 @RequiredArgsConstructor
 public class UserController {
 
-    private final UserRepository userRepository;
+    private final UserService userService;
+
+    @PostMapping("/signup")
+    public User signup(@RequestBody SignupRequest request) {
+        return userService.signup(
+                request.getUserID(),
+                request.getUserpassword()
+        );
+    }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String, String> loginData) {
-        String username = loginData.get("username");
-        String password = loginData.get("password");
+    public String login(@RequestBody LoginRequest request, HttpSession session) {
 
-        Optional<User> user = userRepository.findByUsernameAndPassword(username, password);
+        boolean result = userService.login(
+                request.getUserID(),
+                request.getUserpassword()
+        );
 
-        if (user.isPresent()) {
-            // 성공 시 이름(name)을 리액트로 전달
-            return ResponseEntity.ok(Map.of("success", true, "name", user.get().getName()));
-        } else {
-            // 실패 시 401 에러 반환
-            return ResponseEntity.status(401).body(Map.of("success", false, "message", "로그인 실패"));
+        if (!result) {
+            throw new RuntimeException("비밀번호가 일치하지 않습니다.");
         }
+
+        session.setAttribute("loginUserID", request.getUserID());
+
+        return "로그인 성공";
+    }
+
+    @PostMapping("/logout")
+    public String logout(HttpSession session) {
+        session.invalidate();
+        return "로그아웃 성공";
     }
 }
