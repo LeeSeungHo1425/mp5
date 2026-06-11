@@ -1,5 +1,6 @@
 function LoginPanel({
   isLoggedIn,
+  loginUser,
   userId,
   userPw,
   onUserIdChange,
@@ -13,11 +14,17 @@ function LoginPanel({
         <div className="user-info">
           <h3>User Info</h3>
           <p>
-            <strong>Administrator</strong>
+            <strong>{loginUser?.username || "User"}</strong>
+            <br />
+            ID: {loginUser?.userId}
             <br />
             Welcome.
           </p>
-          <button className="btn-login btn-logout" type="button" onClick={onLogout}>
+          <button
+            className="btn-login btn-logout"
+            type="button"
+            onClick={onLogout}
+          >
             Logout
           </button>
         </div>
@@ -26,13 +33,13 @@ function LoginPanel({
           <h3>Login</h3>
           <input
             type="text"
-            placeholder="ID (admin)"
+            placeholder="ID"
             value={userId}
             onChange={(event) => onUserIdChange(event.target.value)}
           />
           <input
             type="password"
-            placeholder="Password (1234)"
+            placeholder="Password"
             value={userPw}
             onChange={(event) => onUserPwChange(event.target.value)}
             onKeyDown={(event) => event.key === "Enter" && onLogin()}

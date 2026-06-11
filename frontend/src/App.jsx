@@ -30,9 +30,12 @@ function App() {
   const [filteredBooks, setFilteredBooks] = useState([]);
   const [activeCategory, setActiveCategory] = useState("All Books");
   const [currentView, setCurrentView] = useState("home");
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loginUser, setLoginUser] = useState(null);
   const [userId, setUserId] = useState("");
   const [userPw, setUserPw] = useState("");
+
   const [searchTerm, setSearchTerm] = useState("");
   const [searchTitle, setSearchTitle] = useState("Recommended Books");
   const [searchStatus, setSearchStatus] = useState("");
@@ -68,8 +71,38 @@ function App() {
     }
   };
 
+  const checkLoginStatus = async () => {
+    try {
+      const response = await fetch("/api/users/me", {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        setIsLoggedIn(false);
+        setLoginUser(null);
+        return;
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setIsLoggedIn(true);
+        setLoginUser({
+          userId: data.userId,
+          username: data.username,
+        });
+      }
+    } catch (error) {
+      console.error("Login status check failed:", error);
+      setIsLoggedIn(false);
+      setLoginUser(null);
+    }
+  };
+
   useEffect(() => {
     fetchBooksFromDb();
+    checkLoginStatus();
   }, []);
 
   useEffect(() => {
@@ -146,24 +179,67 @@ function App() {
     }
   };
 
-  const handleLogin = () => {
-    if (userId === "admin" && userPw === "1234") {
-      setIsLoggedIn(true);
+  const handleLogin = async () => {
+    if (!userId.trim() || !userPw.trim()) {
+      alert("아이디와 비밀번호를 입력해주세요.");
       return;
     }
 
-    alert("The ID or password is incorrect.\n(Test account: admin / 1234)");
+    try {
+      const response = await fetch("/api/users/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          userId: userId,
+          userpassword: userPw,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        alert(data.message || "로그인에 실패했습니다.");
+        return;
+      }
+
+      setIsLoggedIn(true);
+      setLoginUser({
+        userId: data.userId,
+        username: data.username,
+      });
+      setUserPw("");
+
+      alert(`${data.username}님 로그인되었습니다.`);
+    } catch (error) {
+      console.error("Login failed:", error);
+      alert("서버와 통신 중 오류가 발생했습니다.");
+    }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/users/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+
     setIsLoggedIn(false);
+    setLoginUser(null);
     setUserId("");
     setUserPw("");
     goHome();
   };
 
   const getBookCartKey = (book) =>
-    book.id || book.isbn || `${book.title || "untitled"}-${book.author || "unknown"}`;
+    book.id ||
+    book.isbn ||
+    `${book.title || "untitled"}-${book.author || "unknown"}`;
 
   const handleAddToCart = (book) => {
     if (!isLoggedIn) {
@@ -177,7 +253,9 @@ function App() {
 
       if (existingItem) {
         return currentItems.map((item) =>
-          item.cartKey === cartKey ? { ...item, quantity: item.quantity + 1 } : item
+          item.cartKey === cartKey
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
         );
       }
 
@@ -207,7 +285,9 @@ function App() {
   };
 
   const handleRemoveFromCart = (cartKey) => {
-    setCartItems((currentItems) => currentItems.filter((item) => item.cartKey !== cartKey));
+    setCartItems((currentItems) =>
+      currentItems.filter((item) => item.cartKey !== cartKey)
+    );
   };
 
   const handleBookSelect = (book) => {
@@ -272,6 +352,7 @@ function App() {
               <aside className="right-sidebar">
                 <LoginPanel
                   isLoggedIn={isLoggedIn}
+                  loginUser={loginUser}
                   userId={userId}
                   userPw={userPw}
                   onUserIdChange={setUserId}
@@ -288,7 +369,10 @@ function App() {
       <Route path="/payment" element={<PaymentPage />} />
       <Route path="/payment/success" element={<PaymentSuccess />} />
       <Route path="/payment/fail" element={<PaymentFail />} />
-      <Route path="/bookinfo" element={<BookInfoPage isLoggedIn={isLoggedIn} />} />
+      <Route
+        path="/bookinfo"
+        element={<BookInfoPage isLoggedIn={isLoggedIn} />}
+      />
     </Routes>
   );
 }
