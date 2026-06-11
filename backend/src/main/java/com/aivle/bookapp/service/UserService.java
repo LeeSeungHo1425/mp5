@@ -18,16 +18,31 @@ public class UserService {
     @Transactional
     public User signup(User user) {
 
-        // 1. 아이디 중복 검사
+        // 아이디 입력 확인
+        if (user.getUserId() == null || user.getUserId().isBlank()) {
+            throw new IllegalArgumentException("아이디를 입력해주세요.");
+        }
+
+        // 비밀번호 입력 확인
+        if (user.getUserpassword() == null || user.getUserpassword().isBlank()) {
+            throw new IllegalArgumentException("비밀번호를 입력해주세요.");
+        }
+
+        // 이름 입력 확인
+        if (user.getUsername() == null || user.getUsername().isBlank()) {
+            throw new IllegalArgumentException("이름을 입력해주세요.");
+        }
+
+        // 아이디 중복 검사
         if (userRepository.existsByUserId(user.getUserId())) {
             throw new IllegalArgumentException("이미 존재하는 아이디입니다.");
         }
 
-        // 2. 비밀번호 암호화
+        // 비밀번호 암호화
         String encodedPassword = passwordEncoder.encode(user.getUserpassword());
         user.setUserpassword(encodedPassword);
 
-        // 3. DB 저장
+        // DB 저장
         return userRepository.save(user);
     }
 
@@ -35,16 +50,25 @@ public class UserService {
     @Transactional(readOnly = true)
     public User login(String userId, String userpassword) {
 
-        // 1. 아이디로 사용자 찾기
-        User user = userRepository.findByUserId(userId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 아이디입니다."));
-
-        // 2. 비밀번호 비교
-        if (!passwordEncoder.matches(userpassword, user.getUserpassword())) {
-            throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
+        // 아이디 입력 확인
+        if (userId == null || userId.isBlank()) {
+            throw new IllegalArgumentException("아이디를 입력해주세요.");
         }
 
-        // 3. 로그인 성공
+        // 비밀번호 입력 확인
+        if (userpassword == null || userpassword.isBlank()) {
+            throw new IllegalArgumentException("비밀번호를 입력해주세요.");
+        }
+
+        // 아이디 확인
+        User user = userRepository.findByUserId(userId)
+                .orElseThrow(() -> new IllegalArgumentException("아이디가 틀렸습니다."));
+
+        // 비밀번호 확인
+        if (!passwordEncoder.matches(userpassword, user.getUserpassword())) {
+            throw new IllegalArgumentException("비밀번호가 틀렸습니다.");
+        }
+
         return user;
     }
 }
