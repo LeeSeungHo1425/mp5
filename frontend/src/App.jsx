@@ -17,6 +17,17 @@ function App() {
   const [signupName, setSignupName] = useState('');
   const [members, setMembers] = useState([{ id: 'admin', pw: '1234', name: '최고관리자' }]);
 
+  // 마이페이지 탭 상태
+  const [mypageTab, setMypageTab] = useState('info');
+  // 비밀번호 변경 상태
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [newPwCheck, setNewPwCheck] = useState('');
+  // 계좌 상태
+  const [bankName, setBankName] = useState('');
+  const [accountNum, setAccountNum] = useState('');
+  const [savedAccount, setSavedAccount] = useState(null);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -26,9 +37,7 @@ function App() {
         const books = Array.isArray(data) ? data : data.books || [];
         setAllBooks(books);
         setFilteredBooks(books);
-      } catch (error) {
-        console.error(error);
-      }
+      } catch (error) { console.error(error); }
     };
     fetchData();
   }, []);
@@ -36,18 +45,12 @@ function App() {
   const handleCategoryClick = (categoryName) => {
     setCurrentView('home');
     setActiveCategory(categoryName);
-    if (categoryName === '전체 도서') {
-      setFilteredBooks(allBooks);
-    } else {
-      setFilteredBooks(allBooks.filter(book => book.type === categoryName));
-    }
+    if (categoryName === '전체 도서') setFilteredBooks(allBooks);
+    else setFilteredBooks(allBooks.filter(book => book.type === categoryName));
   };
 
   const handleNavigation = (viewName) => {
-    if (!isLoggedIn) {
-      alert('로그인 후 이용 가능합니다.');
-      return;
-    }
+    if (!isLoggedIn) { alert('로그인 후 이용 가능합니다.'); return; }
     setCurrentView(viewName);
   };
 
@@ -59,11 +62,8 @@ function App() {
 
   const handleLogin = () => {
     const found = members.find(m => m.id === userId && m.pw === userPw);
-    if (found) {
-      setIsLoggedIn(true);
-    } else {
-      alert('아이디 또는 비밀번호가 틀렸습니다.');
-    }
+    if (found) setIsLoggedIn(true);
+    else alert('아이디 또는 비밀번호가 틀렸습니다.');
   };
 
   const handleLogout = () => {
@@ -74,22 +74,37 @@ function App() {
   };
 
   const handleSignup = () => {
-    if (!signupId || !signupPw || !signupName) {
-      alert('모든 항목을 입력해주세요.');
-      return;
-    }
-    if (signupPw !== signupPwCheck) {
-      alert('비밀번호가 일치하지 않습니다.');
-      return;
-    }
-    if (members.find(m => m.id === signupId)) {
-      alert('이미 사용 중인 아이디입니다.');
-      return;
-    }
+    if (!signupId || !signupPw || !signupName) { alert('모든 항목을 입력해주세요.'); return; }
+    if (signupPw !== signupPwCheck) { alert('비밀번호가 일치하지 않습니다.'); return; }
+    if (members.find(m => m.id === signupId)) { alert('이미 사용 중인 아이디입니다.'); return; }
     setMembers(prev => [...prev, { id: signupId, pw: signupPw, name: signupName }]);
     alert(`'${signupName}'님 회원가입 완료!\n아이디: ${signupId}`);
     setSignupId(''); setSignupPw(''); setSignupPwCheck(''); setSignupName('');
     setCurrentView('home');
+  };
+
+  const handleChangePw = () => {
+    const me = members.find(m => m.id === userId);
+    if (me.pw !== currentPw) { alert('현재 비밀번호가 틀렸습니다.'); return; }
+    if (!newPw) { alert('새 비밀번호를 입력해주세요.'); return; }
+    if (newPw !== newPwCheck) { alert('새 비밀번호가 일치하지 않습니다.'); return; }
+    setMembers(prev => prev.map(m => m.id === userId ? { ...m, pw: newPw } : m));
+    alert('비밀번호가 변경되었습니다.\n(백엔드 연결 후 실제 저장됩니다.)');
+    setCurrentPw(''); setNewPw(''); setNewPwCheck('');
+  };
+
+  const handleSaveAccount = () => {
+    if (!bankName || !accountNum) { alert('은행명과 계좌번호를 입력해주세요.'); return; }
+    setSavedAccount({ bankName, accountNum });
+    alert('계좌가 등록되었습니다.\n(백엔드 연결 후 실제 저장됩니다.)');
+    setBankName(''); setAccountNum('');
+  };
+
+  const handleWithdraw = () => {
+    if (!window.confirm('정말 탈퇴하시겠습니까?\n탈퇴 시 모든 정보가 삭제됩니다.')) return;
+    setMembers(prev => prev.filter(m => m.id !== userId));
+    handleLogout();
+    alert('회원 탈퇴가 완료되었습니다.');
   };
 
   const handleAddToCart = (book) => {
@@ -126,6 +141,13 @@ function App() {
       </div>
     );
   };
+
+  const inputStyle = { width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', marginBottom: '4px' };
+  const tabStyle = (tab) => ({
+    padding: '10px 20px', border: 'none', borderBottom: mypageTab === tab ? '2px solid #0d6efd' : '2px solid transparent',
+    background: 'none', cursor: 'pointer', fontWeight: mypageTab === tab ? 'bold' : 'normal',
+    color: mypageTab === tab ? '#0d6efd' : '#555', fontSize: '14px'
+  });
 
   return (
     <div className="app-container">
@@ -177,33 +199,28 @@ function App() {
             </>
           )}
 
-          {/* ⭐ 회원가입 화면 - 중앙에 크게 */}
+          {/* 회원가입 */}
           {currentView === 'signup' && (
             <div className="box" style={{ maxWidth: '500px', margin: '40px auto', padding: '40px' }}>
               <h2 style={{ borderBottom: '2px solid #333', paddingBottom: '10px', marginBottom: '30px' }}>📝 회원가입</h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 <div>
                   <label style={{ fontSize: '14px', fontWeight: 'bold', display: 'block', marginBottom: '6px' }}>이름</label>
-                  <input type="text" placeholder="이름을 입력하세요" value={signupName} onChange={(e) => setSignupName(e.target.value)}
-                    style={{ width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px' }} />
+                  <input type="text" placeholder="이름을 입력하세요" value={signupName} onChange={(e) => setSignupName(e.target.value)} style={inputStyle} />
                 </div>
                 <div>
                   <label style={{ fontSize: '14px', fontWeight: 'bold', display: 'block', marginBottom: '6px' }}>아이디</label>
-                  <input type="text" placeholder="아이디를 입력하세요" value={signupId} onChange={(e) => setSignupId(e.target.value)}
-                    style={{ width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px' }} />
+                  <input type="text" placeholder="아이디를 입력하세요" value={signupId} onChange={(e) => setSignupId(e.target.value)} style={inputStyle} />
                 </div>
                 <div>
                   <label style={{ fontSize: '14px', fontWeight: 'bold', display: 'block', marginBottom: '6px' }}>비밀번호</label>
-                  <input type="password" placeholder="비밀번호를 입력하세요" value={signupPw} onChange={(e) => setSignupPw(e.target.value)}
-                    style={{ width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px' }} />
+                  <input type="password" placeholder="비밀번호를 입력하세요" value={signupPw} onChange={(e) => setSignupPw(e.target.value)} style={inputStyle} />
                 </div>
                 <div>
                   <label style={{ fontSize: '14px', fontWeight: 'bold', display: 'block', marginBottom: '6px' }}>비밀번호 확인</label>
-                  <input type="password" placeholder="비밀번호를 다시 입력하세요" value={signupPwCheck} onChange={(e) => setSignupPwCheck(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSignup()}
-                    style={{ width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px' }} />
+                  <input type="password" placeholder="비밀번호를 다시 입력하세요" value={signupPwCheck} onChange={(e) => setSignupPwCheck(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSignup()} style={inputStyle} />
                 </div>
-                <button onClick={handleSignup} style={{ padding: '14px', backgroundColor: '#0d6efd', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', marginTop: '10px' }}>
+                <button onClick={handleSignup} style={{ padding: '14px', backgroundColor: '#0d6efd', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
                   가입하기
                 </button>
                 <div style={{ textAlign: 'center', fontSize: '13px', color: '#777', cursor: 'pointer' }} onClick={() => setCurrentView('home')}>
@@ -215,14 +232,79 @@ function App() {
 
           {/* 마이페이지 */}
           {currentView === 'mypage' && (
-            <div className="box" style={{ minHeight: '500px', padding: '40px' }}>
-              <h2 style={{ borderBottom: '2px solid #333', paddingBottom: '10px' }}>👤 마이페이지</h2>
-              <div style={{ marginTop: '30px', fontSize: '16px' }}>
-                <p style={{ marginBottom: '10px' }}><strong>아이디:</strong> {userId}</p>
-                <p style={{ marginBottom: '10px' }}><strong>이름:</strong> {members.find(m => m.id === userId)?.name}</p>
-                <p style={{ marginBottom: '10px' }}><strong>회원등급:</strong> VIP</p>
-                <p style={{ color: '#777', marginTop: '20px' }}>(회원정보 수정 기능은 준비 중입니다.)</p>
+            <div className="box" style={{ minHeight: '500px', padding: '30px' }}>
+              <h2 style={{ borderBottom: '2px solid #333', paddingBottom: '10px', marginBottom: '20px' }}>👤 마이페이지</h2>
+
+              {/* 탭 메뉴 */}
+              <div style={{ display: 'flex', borderBottom: '1px solid #eee', marginBottom: '30px' }}>
+                <button style={tabStyle('info')} onClick={() => setMypageTab('info')}>내 정보</button>
+                <button style={tabStyle('password')} onClick={() => setMypageTab('password')}>비밀번호 변경</button>
+                <button style={tabStyle('account')} onClick={() => setMypageTab('account')}>결제 계좌</button>
+                <button style={tabStyle('withdraw')} onClick={() => setMypageTab('withdraw')}>회원 탈퇴</button>
               </div>
+
+              {/* 내 정보 탭 */}
+              {mypageTab === 'info' && (
+                <div style={{ fontSize: '16px' }}>
+                  <p style={{ marginBottom: '15px' }}><strong>아이디:</strong> {userId}</p>
+                  <p style={{ marginBottom: '15px' }}><strong>이름:</strong> {members.find(m => m.id === userId)?.name}</p>
+                  <p style={{ marginBottom: '15px' }}><strong>회원등급:</strong> VIP</p>
+                  <p style={{ color: '#777', marginTop: '10px', fontSize: '13px' }}>(추가 정보 수정은 백엔드 연결 후 가능합니다.)</p>
+                </div>
+              )}
+
+              {/* 비밀번호 변경 탭 */}
+              {mypageTab === 'password' && (
+                <div style={{ maxWidth: '400px' }}>
+                  <p style={{ marginBottom: '20px', color: '#555' }}>비밀번호를 변경합니다.</p>
+                  <label style={{ fontSize: '14px', fontWeight: 'bold', display: 'block', marginBottom: '6px' }}>현재 비밀번호</label>
+                  <input type="password" placeholder="현재 비밀번호" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} style={inputStyle} />
+                  <label style={{ fontSize: '14px', fontWeight: 'bold', display: 'block', marginBottom: '6px', marginTop: '10px' }}>새 비밀번호</label>
+                  <input type="password" placeholder="새 비밀번호" value={newPw} onChange={(e) => setNewPw(e.target.value)} style={inputStyle} />
+                  <label style={{ fontSize: '14px', fontWeight: 'bold', display: 'block', marginBottom: '6px', marginTop: '10px' }}>새 비밀번호 확인</label>
+                  <input type="password" placeholder="새 비밀번호 확인" value={newPwCheck} onChange={(e) => setNewPwCheck(e.target.value)} style={inputStyle} />
+                  <button onClick={handleChangePw} style={{ marginTop: '15px', padding: '12px 30px', backgroundColor: '#0d6efd', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                    변경하기
+                  </button>
+                </div>
+              )}
+
+              {/* 결제 계좌 탭 */}
+              {mypageTab === 'account' && (
+                <div style={{ maxWidth: '400px' }}>
+                  {savedAccount && (
+                    <div style={{ padding: '15px', backgroundColor: '#f0f7ff', borderRadius: '8px', marginBottom: '20px', border: '1px solid #cce0ff' }}>
+                      <p style={{ fontWeight: 'bold', marginBottom: '5px' }}>✅ 등록된 계좌</p>
+                      <p style={{ color: '#555' }}>{savedAccount.bankName} | {savedAccount.accountNum}</p>
+                    </div>
+                  )}
+                  <p style={{ marginBottom: '20px', color: '#555' }}>{savedAccount ? '계좌를 변경합니다.' : '결제 계좌를 등록합니다.'}</p>
+                  <label style={{ fontSize: '14px', fontWeight: 'bold', display: 'block', marginBottom: '6px' }}>은행명</label>
+                  <input type="text" placeholder="예: 국민은행, 신한은행" value={bankName} onChange={(e) => setBankName(e.target.value)} style={inputStyle} />
+                  <label style={{ fontSize: '14px', fontWeight: 'bold', display: 'block', marginBottom: '6px', marginTop: '10px' }}>계좌번호</label>
+                  <input type="text" placeholder="계좌번호를 입력하세요" value={accountNum} onChange={(e) => setAccountNum(e.target.value)} style={inputStyle} />
+                  <button onClick={handleSaveAccount} style={{ marginTop: '15px', padding: '12px 30px', backgroundColor: '#0d6efd', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                    {savedAccount ? '계좌 변경하기' : '계좌 등록하기'}
+                  </button>
+                  <p style={{ fontSize: '12px', color: '#aaa', marginTop: '10px' }}>※ 백엔드 연결 후 실제 저장됩니다.</p>
+                </div>
+              )}
+
+              {/* 회원 탈퇴 탭 */}
+              {mypageTab === 'withdraw' && (
+                <div style={{ maxWidth: '400px' }}>
+                  <div style={{ padding: '20px', backgroundColor: '#fff5f5', borderRadius: '8px', border: '1px solid #ffd0d0', marginBottom: '20px' }}>
+                    <p style={{ fontWeight: 'bold', color: '#e53e3e', marginBottom: '10px' }}>⚠️ 탈퇴 전 확인해주세요</p>
+                    <p style={{ fontSize: '14px', color: '#555', lineHeight: '1.6' }}>
+                      회원 탈퇴 시 모든 개인정보 및 구매 내역이 삭제됩니다.<br />
+                      삭제된 데이터는 복구할 수 없습니다.
+                    </p>
+                  </div>
+                  <button onClick={handleWithdraw} style={{ padding: '12px 30px', backgroundColor: '#e53e3e', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                    회원 탈퇴하기
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -320,12 +402,9 @@ function App() {
                 <input type="text" placeholder="아이디" value={userId} onChange={(e) => setUserId(e.target.value)} />
                 <input type="password" placeholder="비밀번호" value={userPw} onChange={(e) => setUserPw(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleLogin()} />
                 <button className="btn-login" onClick={handleLogin}>로그인</button>
-                {/* ⭐ 회원가입 링크 - 클릭하면 중앙 화면이 회원가입으로 바뀜 */}
                 <div style={{ textAlign: 'center', fontSize: '12px', marginTop: '10px', color: '#777' }}>
                   계정이 없으신가요?{' '}
-                  <span style={{ color: '#0d6efd', cursor: 'pointer' }} onClick={() => setCurrentView('signup')}>
-                    회원가입
-                  </span>
+                  <span style={{ color: '#0d6efd', cursor: 'pointer' }} onClick={() => setCurrentView('signup')}>회원가입</span>
                 </div>
               </div>
             )}
