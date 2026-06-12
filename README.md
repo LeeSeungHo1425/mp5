@@ -1,7 +1,7 @@
 # 📚 BookApp — AI 도서 플랫폼
 
 Spring Boot + React 기반 도서 관리 서비스.
-국립중앙도서관 API 연동, AI 표지 생성(gpt-image-2), AI 쇼츠 영상 제작(GPT + TTS + FFmpeg) 기능을 포함합니다.
+국립중앙도서관 API 연동, AI 표지 생성(DALL·E), AI 쇼츠 영상 제작(GPT + TTS + FFmpeg) 기능을 포함합니다.
 
 ---
 
@@ -11,7 +11,7 @@ Spring Boot + React 기반 도서 관리 서비스.
 |---|---|
 | Backend | Spring Boot 3, Spring Data JPA, Spring Security, H2 Database |
 | Frontend | React 19, Vite, React Router v7 |
-| AI | OpenAI GPT-3.5-turbo, gpt-image-2, TTS (nova) |
+| AI | OpenAI GPT-3.5-turbo, DALL·E, TTS (nova) |
 | 영상 합성 | FFmpeg |
 | 빌드 도구 | Gradle |
 
@@ -79,8 +79,12 @@ Username: sa  /  Password: 1234
 | 메서드 | 엔드포인트 | 설명 | 요청 Body | 응답 코드 | 응답 |
 |---|---|---|---|---|---|
 | POST | `/api/users/signup` | 회원가입 | `{ username, password, name }` | `200` / `400` | `User` |
-
-> **구현 범위**: 현재 회원가입(`signup`)만 구현. 로그인/로그아웃/세션 확인은 Spring Security 설정으로 처리.
+| POST/GET | `/api/users/login` | 로그인 | `{ userId, userpassword }` | `200` / `400` | `User` |
+| GET | `/api/users/me` | 로그인 상태 확인 | `{ credentials }` | `200` / `400` | `User` |
+| GET | `/api/users/mypage` | 마이페이지 | `{ credentials }` | `200` / `400` | `User` |
+| POST | `/api/users/logout` | 로그아웃 | `{ credentials }` | `200` / `400` | `User` |
+| PATCH | `/api/users/{username}/password` | 비밀변호 변경 | `{ userId, userpassword }` | `200` / `400` | `User` |
+| DELETE | `/api/users/{username}` | 계정 삭제 | `{ userId, username }` | `200` / `400` | `User` |
 
 ---
 
@@ -140,20 +144,46 @@ Username: sa  /  Password: 1234
 | 메서드 | 엔드포인트 | 설명 | 파라미터 | 응답 코드 | 응답 |
 |---|---|---|---|---|---|
 | GET | `/api/books/search` | 국립중앙도서관 통합 검색 (JSON) | `keyword` (query string) | `200` / `400` / `500` | `{ "books": Book[] }` |
-| GET | `/searchBooks` | 국립중앙도서관 원시 XML 조회 | `keyword` (query string) | `200` | XML 원문 (text/plain) |
+| GET | `nl.go.kr/NL/search/openApi/search.do` | 국립중앙도서관 원시 XML 조회 | `keyword` (query string) | `200` | XML 원문 (text/plain) |
+
+>국립중앙도서관 api호출 시 반환 되는 내용은 xml원문이기에 백엔드에서 xml을 json으로 parsing을 한다.
 
 **응답 Body (`/api/books/search`)**
 ```json
 {
-  "books": [
-    {
-      "title": "스프링 부트 입문",
-      "author": "홍길동",
-      "publisher": "한빛미디어",
-      "isbn": "978-89-6848-000-0"
-    }
-  ]
-}
+    "books": [
+        {
+            "id": "KSE200301906",
+            "title": "It",
+            "author": "",
+            "publisher": "SK Telecom",
+            "publishedYear": "",
+            "isbn": "",
+            "cover": "http://cover.nl.go.kr/",
+            "source": "library"
+        },
+        { 
+            "id": "KSE200301465",
+            "title": "it",
+            "author": "",
+            "publisher": "SK Telecom",
+            "publishedYear": "",
+            "isbn": "",
+            "cover": "http://cover.nl.go.kr/",
+            "source": "library"
+        },
+        {
+            "id": "It",
+            "title": "It",
+            "author": "스왈로우 가수[1972-] Swallow 작곡 Swallow 편곡",
+            "publisher": "20091020",
+            "publishedYear": "",
+            "isbn": "",
+            "cover": "http://cover.nl.go.kr/",
+            "source": "library"
+        },
+ ...
+ 
 ```
 
 ---
@@ -190,30 +220,126 @@ Username: sa  /  Password: 1234
 ## 🗂 프로젝트 구조
 
 ```
-com.aivle.bookapp
-├── config/
-│   ├── SecurityConfig.java       # Spring Security, BCrypt 설정
-│   └── WebConfig.java            # CORS, 정적 파일(/videos/**) 서빙
-├── controller/
-│   ├── BookController.java       # REST /books
-│   ├── OpenAiVideoController.java # REST /api/videos
-│   ├── UserController.java       # REST /api/users
-│   └── NatLibController.java     # 국립중앙도서관 API 프록시
-├── DTO/
-│   └── VideoRequestDto.java
-├── entity/
-│   ├── Book.java
-│   └── User.java
-├── exception/                    # 미션 5·6
-│   ├── BookNotFoundException.java
-│   └── GlobalExceptionHandler.java
-├── repository/
-│   ├── BookRepository.java
-│   └── UserRepository.java
-└── service/
-    ├── BookService.java
-    ├── OpenAiVideoService.java
-    └── UserService.java
+mp5/
+├─ .gitignore
+├─ build.gradle
+├─ gradlew
+├─ gradlew.bat
+├─ HELP.md
+├─ package.json
+├─ package-lock.json
+├─ README.md
+├─ settings.gradle
+│
+├─ backend/
+│  └─ src/
+│     ├─ main/
+│     │  ├─ java/
+│     │  │  └─ com/aivle/bookapp/
+│     │  │     ├─ APIKEY.java
+│     │  │     ├─ BookappApplication.java
+│     │  │     ├─ BookCsvDataLoader.java
+│     │  │     ├─ ConnectObject.java
+│     │  │     ├─ LibraryXmlParser.java
+│     │  │     │
+│     │  │     ├─ config/
+│     │  │     │  ├─ H2ConsoleConfig.java
+│     │  │     │  ├─ SecurityConfig.java
+│     │  │     │  ├─ testgitcomit.java
+│     │  │     │  └─ WebConfig.java
+│     │  │     │
+│     │  │     ├─ controller/
+│     │  │     │  ├─ BookController.java
+│     │  │     │  ├─ DebugBookController.java
+│     │  │     │  ├─ LibrarySearchController.java
+│     │  │     │  ├─ NatLibController.java
+│     │  │     │  ├─ OpenAiImageController.java
+│     │  │     │  ├─ OpenAiVideoController.java
+│     │  │     │  └─ UserController.java
+│     │  │     │
+│     │  │     ├─ DTO/
+│     │  │     │  └─ VideoRequestDto.java
+│     │  │     │
+│     │  │     ├─ entity/
+│     │  │     │  ├─ Book.java
+│     │  │     │  └─ User.java
+│     │  │     │
+│     │  │     ├─ repository/
+│     │  │     │  ├─ BookRepository.java
+│     │  │     │  └─ UserRepository.java
+│     │  │     │
+│     │  │     └─ service/
+│     │  │        ├─ BookService.java
+│     │  │        ├─ OpenAiVideoService.java
+│     │  │        └─ UserService.java
+│     │  │
+│     │  └─ resources/
+│     │     ├─ application.properties
+│     │     ├─ data/
+│     │     │  ├─ books.csv
+│     │     │  └─ users.csv
+│     │     └─ static/
+│     │        └─ videos/
+│     │
+│     └─ test/
+│        └─ java/com/aivle/bookapp/
+│           ├─ application.yaml
+│           └─ BookappApplicationTests.java
+│
+├─ frontend/
+│  ├─ .gitignore
+│  ├─ eslint.config.js
+│  ├─ index.html
+│  ├─ package.json
+│  ├─ package-lock.json
+│  ├─ README.md
+│  ├─ vite.config.js
+│  │
+│  ├─ public/
+│  │  ├─ db.json
+│  │  ├─ favicon.svg
+│  │  └─ icons.svg
+│  │
+│  └─ src/
+│     ├─ App.css
+│     ├─ App.jsx
+│     ├─ index.css
+│     ├─ main.jsx
+│     │
+│     ├─ assets/
+│     │  ├─ hero.png
+│     │  ├─ react.svg
+│     │  └─ vite.svg
+│     │
+│     ├─ components/
+│     │  ├─ BestsellerSection.jsx
+│     │  ├─ BookCard.jsx
+│     │  ├─ BookGrid.jsx
+│     │  ├─ CategorySidebar.jsx
+│     │  ├─ Header.jsx
+│     │  └─ LoginPanel.jsx
+│     │
+│     └─ pages/
+│        ├─ BookInfoPage.jsx
+│        ├─ CartPage.jsx
+│        ├─ EditBookPage.jsx
+│        ├─ HomePage.jsx
+│        ├─ MyPage.jsx
+│        ├─ PaymentFail.jsx
+│        ├─ PaymentPage.jsx
+│        ├─ PaymentSuccess.jsx
+│        ├─ SignupPage.jsx
+│        └─ WishlistPage.jsx
+│
+├─ gradle/
+│  └─ wrapper/
+│     ├─ gradle-wrapper.jar
+│     └─ gradle-wrapper.properties
+│
+├─ runtime-data/
+│  └─ books.csv
+│
+└─ scripts/
 ```
 
 ---
