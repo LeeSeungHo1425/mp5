@@ -1,7 +1,7 @@
 # 📚 BookApp — AI 도서 플랫폼
 
 Spring Boot + React 기반 도서 관리 서비스.
-국립중앙도서관 API 연동, AI 표지 생성(DALL·E), AI 쇼츠 영상 제작(GPT + TTS + FFmpeg) 기능을 포함합니다.
+국립중앙도서관 API 연동, AI 표지 생성(gpt-image-2), AI 쇼츠 영상 제작(GPT + TTS + FFmpeg) 기능을 포함합니다.
 
 ---
 
