@@ -11,7 +11,7 @@ Spring Boot + React 기반 도서 관리 서비스.
 |---|---|
 | Backend | Spring Boot 3, Spring Data JPA, Spring Security, H2 Database |
 | Frontend | React 19, Vite, React Router v7 |
-| AI | OpenAI GPT-3.5-turbo, DALL·E, TTS (nova) |
+| AI | OpenAI GPT-3.5-turbo, gpt-image-2, TTS (nova) |
 | 영상 합성 | FFmpeg |
 | 빌드 도구 | Gradle |
 
