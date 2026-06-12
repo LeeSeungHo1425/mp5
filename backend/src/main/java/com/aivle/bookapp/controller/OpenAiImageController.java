@@ -12,40 +12,39 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.Map;
 
 @RestController
 @CrossOrigin(origins = "http://localhost:5173")
 public class OpenAiImageController {
 
     private static final String OPENAI_IMAGE_URL = "https://api.openai.com/v1/images/generations";
+    private static final String IMAGE_MODEL = "gpt-image-2";
 
     private final HttpClient client = HttpClient.newHttpClient();
 
     @PostMapping("/api/images/generate")
-    public ResponseEntity<String> generateImage(@RequestBody String requestBodyJson) {
-        ImageGenerateRequest request = parseRequest(requestBodyJson);
+    public ResponseEntity<Map<String, String>> generateImage(@RequestBody ImageGenerateRequest request) {
         String apiKey = resolveApiKey(request.apiKey());
 
         if (apiKey.isBlank()) {
-            return jsonResponse(400, "message",
+            return jsonResponse(400,
                     "OpenAI API key is required. Set OPENAI_API_KEY or enter a key.");
         }
 
         if (request.title() == null || request.title().trim().isEmpty()) {
-            return jsonResponse(400, "message", "Book title is required.");
+            return jsonResponse(400, "Book title is required.");
         }
 
         try {
-            String prompt = buildPrompt(request);
+            System.out.println("Creating image started: title=" + valueOrEmpty(request.title()));
             String requestBody = """
                     {
-                      "model": "gpt-image-2",
+                      "model": "%s",
                       "prompt": "%s",
                       "size": "1024x1024"
                     }
-                    """.formatted(jsonEscape(prompt));
+                    """.formatted(IMAGE_MODEL, jsonEscape(buildPrompt(request)));
 
             HttpRequest openAiRequest = HttpRequest.newBuilder()
                     .uri(URI.create(OPENAI_IMAGE_URL))
@@ -57,8 +56,8 @@ public class OpenAiImageController {
             HttpResponse<String> response = client.send(openAiRequest, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                String message = extractJsonString(response.body(), "message");
-                return jsonResponse(response.statusCode(), "message",
+                String message = extractErrorMessage(response.body());
+                return jsonResponse(response.statusCode(),
                         message.isBlank() ? "Image generation failed." : message);
             }
 
@@ -70,26 +69,86 @@ public class OpenAiImageController {
             }
 
             if (imageUrl.isBlank()) {
-                return jsonResponse(500, "message", "OpenAI response did not include an image.");
+                return jsonResponse(500, "OpenAI response did not include an image.");
             }
 
-            return jsonResponse(200, "imageUrl", imageUrl);
+            System.out.println("Creating image completed.");
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("imageUrl", imageUrl));
         } catch (IOException error) {
-            return jsonResponse(500, "message", "Image generation request failed: " + error.getMessage());
+            return jsonResponse(500, "Image generation request failed: " + error.getMessage());
         } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
-            return jsonResponse(500, "message", "Image generation request interrupted.");
+            return jsonResponse(500, "Image generation request interrupted.");
         }
     }
 
-    private ImageGenerateRequest parseRequest(String requestBodyJson) {
-        return new ImageGenerateRequest(
-                extractJsonString(requestBodyJson, "title"),
-                extractJsonString(requestBodyJson, "author"),
-                extractJsonString(requestBodyJson, "publisher"),
-                extractJsonString(requestBodyJson, "description"),
-                extractJsonString(requestBodyJson, "apiKey")
-        );
+    private String extractErrorMessage(String json) {
+        String errorBlock = extractJsonObject(json, "error");
+        String message = extractJsonString(errorBlock, "message");
+        return message.isBlank() ? extractJsonString(json, "message") : message;
+    }
+
+    private String extractJsonObject(String json, String key) {
+        if (json == null) {
+            return "";
+        }
+
+        int keyStart = findJsonKey(json, key);
+        if (keyStart < 0) {
+            return "";
+        }
+
+        int start = findNextNonWhitespace(json, keyStart + key.length() + 2);
+        if (start < 0 || json.charAt(start) != ':') {
+            return "";
+        }
+
+        start = findNextNonWhitespace(json, start + 1);
+        if (start < 0 || json.charAt(start) != '{') {
+            return "";
+        }
+
+        int depth = 0;
+        boolean inString = false;
+        boolean escaped = false;
+
+        for (int index = start; index < json.length(); index++) {
+            char current = json.charAt(index);
+
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+
+            if (current == '\\') {
+                escaped = true;
+                continue;
+            }
+
+            if (current == '"') {
+                inString = !inString;
+                continue;
+            }
+
+            if (inString) {
+                continue;
+            }
+
+            if (current == '{') {
+                depth++;
+            } else if (current == '}') {
+                depth--;
+
+                if (depth == 0) {
+                    return json.substring(start, index + 1);
+                }
+            }
+        }
+
+        return "";
     }
 
     private String resolveApiKey(String requestApiKey) {
@@ -103,19 +162,16 @@ public class OpenAiImageController {
 
     private String buildPrompt(ImageGenerateRequest request) {
         return """
-                Book title: %s
-                Author: %s
-                Publisher: %s
+                Create a professional modern book cover illustration using only the book information below.
+
+                Title: %s
                 Book description: %s
 
-                Create a polished book cover image based on this information.
                 Do not include readable text in the image.
-                Make it look like a professional modern book cover illustration.
+                Use the title and description to infer the mood, subject, genre, and visual symbols.
                 """.formatted(
                 valueOrEmpty(request.title()),
-                valueOrEmpty(request.author()),
-                valueOrEmpty(request.publisher()),
-                valueOrEmpty(request.description())
+                valueOrEmpty(request.bookDescription())
         );
     }
 
@@ -123,21 +179,97 @@ public class OpenAiImageController {
         return value == null ? "" : value.trim();
     }
 
-    private ResponseEntity<String> jsonResponse(int status, String key, String value) {
+    private ResponseEntity<Map<String, String>> jsonResponse(int status, String message) {
         return ResponseEntity.status(status)
                 .contentType(MediaType.APPLICATION_JSON)
-                .body("{\"" + jsonEscape(key) + "\":\"" + jsonEscape(value) + "\"}");
+                .body(Map.of("message", message));
     }
 
     private String extractJsonString(String json, String key) {
-        Pattern pattern = Pattern.compile("\"" + Pattern.quote(key) + "\"\\s*:\\s*\"((?:\\\\.|[^\"])*)\"");
-        Matcher matcher = pattern.matcher(json);
-
-        if (!matcher.find()) {
+        if (json == null || json.isBlank()) {
             return "";
         }
 
-        return jsonUnescape(matcher.group(1));
+        int keyStart = findJsonKey(json, key);
+        if (keyStart < 0) {
+            return "";
+        }
+
+        int valueStart = findNextNonWhitespace(json, keyStart + key.length() + 2);
+        if (valueStart < 0 || json.charAt(valueStart) != ':') {
+            return "";
+        }
+
+        valueStart = findNextNonWhitespace(json, valueStart + 1);
+        if (valueStart < 0 || json.charAt(valueStart) != '"') {
+            return "";
+        }
+
+        StringBuilder value = new StringBuilder();
+        boolean escaped = false;
+
+        for (int index = valueStart + 1; index < json.length(); index++) {
+            char current = json.charAt(index);
+
+            if (escaped) {
+                value.append('\\').append(current);
+                escaped = false;
+                continue;
+            }
+
+            if (current == '\\') {
+                escaped = true;
+                continue;
+            }
+
+            if (current == '"') {
+                return jsonUnescape(value.toString());
+            }
+
+            value.append(current);
+        }
+
+        return "";
+    }
+
+    private int findJsonKey(String json, String key) {
+        String quotedKey = "\"" + key + "\"";
+        boolean inString = false;
+        boolean escaped = false;
+
+        for (int index = 0; index <= json.length() - quotedKey.length(); index++) {
+            char current = json.charAt(index);
+
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+
+            if (current == '\\') {
+                escaped = true;
+                continue;
+            }
+
+            if (current == '"') {
+                if (!inString && json.startsWith(quotedKey, index)) {
+                    return index;
+                }
+
+                inString = !inString;
+            }
+        }
+
+        return -1;
+    }
+
+    private int findNextNonWhitespace(String text, int start) {
+        for (int index = start; index < text.length(); index++) {
+            if (!Character.isWhitespace(text.charAt(index))) {
+                return index;
+            }
+        }
+
+        return -1;
     }
 
     private String jsonEscape(String value) {
@@ -179,7 +311,15 @@ public class OpenAiImageController {
             String author,
             String publisher,
             String description,
+            String content,
             String apiKey
     ) {
+        public String bookDescription() {
+            if (description != null && !description.trim().isEmpty()) {
+                return description;
+            }
+
+            return content;
+        }
     }
 }

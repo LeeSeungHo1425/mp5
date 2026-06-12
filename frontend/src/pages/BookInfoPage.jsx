@@ -101,12 +101,6 @@ function BookInfoPage({ isLoggedIn }) {
   };
 
   const handleGenerateImage = async () => {
-    if (!showApiKeyInput) {
-      setShowApiKeyInput(true);
-      setMessage("Use the backend OPENAI_API_KEY, or enter a key here before generating.");
-      return;
-    }
-
     if (!formData.title.trim()) {
       setMessage("Enter a title before generating a cover.");
       return;
@@ -139,6 +133,7 @@ function BookInfoPage({ isLoggedIn }) {
       setMessage("");
     } catch (error) {
       console.error("AI cover generation failed:", error);
+      setShowApiKeyInput(true);
       setMessage(error.message);
     } finally {
       setIsGenerating(false);
