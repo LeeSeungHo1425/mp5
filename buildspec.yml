@@ -3,15 +3,17 @@ version: 0.2
 phases:
   install:
     runtime-versions:
-      nodejs: 20
+      java: corretto17
     commands:
-      - npm --prefix frontend install    # frontend 폴더에서 install
+      - chmod +x ./gradlew
 
   build:
     commands:
-      - npm --prefix frontend run build  # frontend 폴더에서 build
+      - ./gradlew clean bootJar -x test
+      - cp build/libs/*.jar app.jar
 
 artifacts:
-  base-directory: frontend/dist          # 루트 기준 경로
   files:
-    - '**/*'
+    - app.jar
+    - appspec.yml
+    - scripts/**/*
