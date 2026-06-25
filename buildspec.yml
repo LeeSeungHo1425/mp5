@@ -4,9 +4,11 @@ phases:
   install:
     commands:
       - chmod +x gradlew
+
   pre_build:
     commands:
       - aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin 879772956301.dkr.ecr.ap-northeast-2.amazonaws.com
+
   build:
     commands:
       - ./gradlew bootJar -x test
@@ -14,6 +16,7 @@ phases:
       - docker build -t user190-repo2 ./backend
       - docker tag user190-repo2:latest 879772956301.dkr.ecr.ap-northeast-2.amazonaws.com/user190-repo2:latest
       - docker push 879772956301.dkr.ecr.ap-northeast-2.amazonaws.com/user190-repo2:latest
+
       - docker build -t user190-repo3 ./frontend
       - docker tag user190-repo3:latest 879772956301.dkr.ecr.ap-northeast-2.amazonaws.com/user190-repo3:latest
       - docker push 879772956301.dkr.ecr.ap-northeast-2.amazonaws.com/user190-repo3:latest
